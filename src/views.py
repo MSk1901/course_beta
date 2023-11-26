@@ -44,3 +44,23 @@ def card_data(data: list[dict], data_month: list) -> list:
             info = {"last_digits": card, "total_spent": 0, "cashback": 0}
         card_info.append(info)
     return card_info
+
+
+def top_five_transactions(data: list) -> list:
+    """
+    Выводит топ-5 операций по сумме платежа
+    """
+    if not data:
+        return []
+    else:
+        transactions = []
+        data_sorted = sorted(data, key=lambda x: abs(x["Сумма операции"]), reverse=True)
+        top_five = data_sorted[:5]
+        for tr in top_five:
+            date = datetime.strptime(tr["Дата операции"], "%d.%m.%Y %H:%M:%S").strftime("%d.%m.%Y")
+            info = {"date": date,
+                    "amount": tr["Сумма операции"],
+                    "category": tr["Категория"],
+                    "description": tr["Описание"]}
+            transactions.append(info)
+        return transactions
