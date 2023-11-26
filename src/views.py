@@ -1,3 +1,7 @@
+import os
+import requests
+from dotenv import load_dotenv
+
 from datetime import datetime
 
 
@@ -64,3 +68,29 @@ def top_five_transactions(data: list) -> list:
                     "description": tr["Описание"]}
             transactions.append(info)
         return transactions
+
+
+def currency_rates(currencies: list) -> list:
+    """
+    Выводит курс валют, выбранных пользователем
+    """
+    if not currencies:
+        return []
+    else:
+        rates_info = []
+        load_dotenv()
+        api_key = os.getenv("EXCHANGE_RATE_API_KEY")
+        if api_key is None:
+            raise ValueError("Нет ключа API")
+        try:
+            for currency in currencies:
+                url = f"https://api.apilayer.com/exchangerates_data/latest?base={currency}"
+                response = requests.get(url, headers={'apikey': api_key})
+                response.raise_for_status()
+                response_data = response.json()
+                rate = response_data["rates"]["RUB"]
+                info = {"currency": currency, "rate": round(rate, 2)}
+                rates_info.append(info)
+            return rates_info
+        except (requests.exceptions.HTTPError, ValueError, KeyError):
+            raise ValueError("Что-то пошло не так")
