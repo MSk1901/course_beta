@@ -94,3 +94,27 @@ def currency_rates(currencies: list) -> list:
             return rates_info
         except (requests.exceptions.HTTPError, ValueError, KeyError):
             raise ValueError("Что-то пошло не так")
+
+
+def stock_rates(stocks: list) -> list:
+    if not stocks:
+        return []
+    else:
+        stocks_info = []
+        load_dotenv()
+        api_key = os.getenv("STOCKS_API_KEY")
+        if api_key is None:
+            raise ValueError("Нет ключа API")
+        try:
+            for stock in stocks:
+                url = f"https://finnhub.io/api/v1/quote?symbol={stock}&token={api_key}"
+                response = requests.get(url)
+                response.raise_for_status()
+                response_data = response.json()
+                stock_price = response_data["c"]
+                info = {"stock": stock,
+                        "price": stock_price}
+                stocks_info.append(info)
+            return stocks_info
+        except (requests.exceptions.HTTPError, ValueError, KeyError):
+            raise ValueError("Что-то пошло не так")
