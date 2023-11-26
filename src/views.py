@@ -97,6 +97,7 @@ def currency_rates(currencies: list) -> list:
 
 
 def stock_rates(stocks: list) -> list:
+    """Получает стоимость акций из списка пользователя"""
     if not stocks:
         return []
     else:
