@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime
 
@@ -43,7 +44,7 @@ def card_data(data: list[dict], data_month: list) -> list:
             spending = -sum(x["Сумма операции"] for x in card_transactions if x["Сумма операции"] < 0)
             cashback = sum(x["Кэшбэк"] for x in card_transactions if x["Кэшбэк"] > 0 and str(x["Кэшбэк"] != "nan"))
 
-            info = {"last_digits": card, "total_spent": spending, "cashback": cashback}
+            info = {"last_digits": card[1:], "total_spent": spending, "cashback": cashback}
         else:
             info = {"last_digits": card, "total_spent": 0, "cashback": 0}
         card_info.append(info)
@@ -119,3 +120,19 @@ def stock_rates(stocks: list) -> list:
             return stocks_info
         except (requests.exceptions.HTTPError, ValueError, KeyError):
             raise ValueError("Что-то пошло не так")
+
+
+def main_json(transactions: list, settings: dict, date: str) -> str:
+    greet = greeting()
+    tr_monthly = month_transactions(transactions, date)
+    card_info = card_data(transactions, tr_monthly)
+    top_five = top_five_transactions(tr_monthly)
+    rates = currency_rates(settings["user_currencies"])
+    stocks = stock_rates(settings["user_stocks"])
+    response = {"greeting": greet,
+                "cards": card_info,
+                "top_transactions": top_five,
+                "currency_rates": rates,
+                "stock_prices": stocks}
+    response_json = json.dumps(response, ensure_ascii=False, indent=4)
+    return response_json
