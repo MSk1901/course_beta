@@ -1,7 +1,6 @@
 import logging
 import os
 
-
 PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs", "mylog.log")
 
 
