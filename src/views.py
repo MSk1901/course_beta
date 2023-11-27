@@ -5,6 +5,10 @@ from datetime import datetime
 import requests
 from dotenv import load_dotenv
 
+from src.logger import setup_logger
+
+logger = setup_logger("views")
+
 
 def greeting() -> str:
     """Создает привествие в зависимости от времени суток"""
@@ -17,14 +21,20 @@ def greeting() -> str:
         greet = "Добрый день"
     else:
         greet = "Добрый вечер"
+
+    logger.debug(f"Создано приветствие '{greet}'")
+
     return greet
 
 
 def month_transactions(data: list[dict], date: str) -> list:
-    """Возвращает транзакции только в текцщем месяце"""
+    """Возвращает транзакции только в текущем месяце"""
     month = datetime.strptime(date, "%d.%m.%Y").strftime("%m.%Y")
     day = datetime.strptime(date, "%d.%m.%Y").day
     transactions = [x for x in data if month in str(x["Дата операции"]) and int(str(x["Дата операции"])[:2]) <= day]
+
+    logger.debug(f"Создан список транзакций за {month}")
+
     return transactions
 
 
@@ -47,7 +57,11 @@ def card_data(data: list[dict], data_month: list) -> list:
             info = {"last_digits": card[1:], "total_spent": spending, "cashback": cashback}
         else:
             info = {"last_digits": card, "total_spent": 0, "cashback": 0}
+
         card_info.append(info)
+
+    logger.debug(f"Получены данные по картам: {cards}")
+
     return card_info
 
 
@@ -56,6 +70,9 @@ def top_five_transactions(data: list) -> list:
     Выводит топ-5 операций по сумме платежа
     """
     if not data:
+
+        logger.debug("Нет транзакций за месяц")
+
         return []
     else:
         transactions = []
@@ -68,6 +85,9 @@ def top_five_transactions(data: list) -> list:
                     "category": tr["Категория"],
                     "description": tr["Описание"]}
             transactions.append(info)
+
+        logger.debug("Получены 5 операций с наибольшей суммой платежа")
+
         return transactions
 
 
@@ -76,6 +96,9 @@ def currency_rates(currencies: list) -> list:
     Выводит курс валют, выбранных пользователем
     """
     if not currencies:
+
+        logger.debug("Пользователь не выбрал валюты")
+
         return []
     else:
         rates_info = []
@@ -92,20 +115,32 @@ def currency_rates(currencies: list) -> list:
                 rate = response_data["rates"]["RUB"]
                 info = {"currency": currency, "rate": round(rate, 2)}
                 rates_info.append(info)
+
+            logger.debug(f"Получен курс валют для: {currencies}")
+
             return rates_info
-        except (requests.exceptions.HTTPError, ValueError, KeyError):
+        except (requests.exceptions.HTTPError, ValueError, KeyError) as e:
+
+            logger.error(f"Возникла ошибка {e}")
+
             raise ValueError("Что-то пошло не так")
 
 
 def stock_rates(stocks: list) -> list:
     """Получает стоимость акций из списка пользователя"""
     if not stocks:
+
+        logger.debug("Пользователь не выбрал акции")
+
         return []
     else:
         stocks_info = []
         load_dotenv()
         api_key = os.getenv("STOCKS_API_KEY")
         if api_key is None:
+
+            logger.error("Нет ключа API")
+
             raise ValueError("Нет ключа API")
         try:
             for stock in stocks:
@@ -117,8 +152,14 @@ def stock_rates(stocks: list) -> list:
                 info = {"stock": stock,
                         "price": stock_price}
                 stocks_info.append(info)
+
+            logger.debug(f"Получен курс валют для: {stocks}")
+
             return stocks_info
-        except (requests.exceptions.HTTPError, ValueError, KeyError):
+        except (requests.exceptions.HTTPError, ValueError, KeyError) as e:
+
+            logger.error(f"Возникла ошибка {e}")
+
             raise ValueError("Что-то пошло не так")
 
 
@@ -135,4 +176,7 @@ def main_json(transactions: list, settings: dict, date: str) -> str:
                 "currency_rates": rates,
                 "stock_prices": stocks}
     response_json = json.dumps(response, ensure_ascii=False, indent=4)
+
+    logger.debug("Сформирован json-ответ")
+
     return response_json

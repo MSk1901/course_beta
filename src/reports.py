@@ -6,6 +6,10 @@ from typing import Any, Callable, Optional
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
+from src.logger import setup_logger
+
+logger = setup_logger("reports")
+
 PATH_TO_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "report.xlsx")
 
 
@@ -18,10 +22,18 @@ def report(*, filename: str = PATH_TO_FILE) -> Callable:
                 result = func(*args, **kwargs)
                 if filename.endswith(".xlsx"):
                     result.to_excel(filename, index=False)
+
+                    logger.debug(f"Данные записаны в файл {filename}")
+
                 else:
+
+                    logger.error("Некорректный формат файла")
+
                     raise ValueError("Файл некорректного формата")
             except Exception as e:
-                print(e)
+
+                logger.error(f"Возникла ошибка {e}")
+
                 result = None
             return result
         return inner
@@ -32,6 +44,8 @@ def report(*, filename: str = PATH_TO_FILE) -> Callable:
 def spending_by_category(transactions: pd.DataFrame,
                          category: str,
                          date: Optional[str] = None) -> pd.DataFrame:
+    """Выводит траты по заданной категории за последние 3 месяца (от переданной даты)"""
+
     if not date:
         end_date = datetime.now()
     else:
@@ -46,4 +60,7 @@ def spending_by_category(transactions: pd.DataFrame,
     tr_by_dates = transactions[(transactions["Дата операции"] <= end_date_formatted) &
                                (transactions["Дата операции"] >= start_date_formatted)]
     spent_by_category = tr_by_dates[(tr_by_dates["Категория"] == category) & (tr_by_dates["Сумма операции"] < 0)]
+
+    logger.debug("Сформирован датафрейм с операциями")
+
     return spent_by_category

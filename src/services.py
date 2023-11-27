@@ -2,10 +2,17 @@ import json
 import re
 from datetime import datetime
 
+from src.logger import setup_logger
+
+logger = setup_logger("services")
+
 
 def search_phone_numbers(data: list) -> str:
     """Возвращает JSON со всеми транзакциями, содержащими в описании мобильные номера"""
     if not data:
+
+        logger.debug("Нет данных для анализа")
+
         return "[]"
     else:
         pattern = re.compile(r"(\+7|8).*?(\d{3}).*?(\d{3}).*?(\d{2}).*?(\d{2})")
@@ -19,4 +26,7 @@ def search_phone_numbers(data: list) -> str:
                     "description": tr["Описание"]}
             tr_info.append(info)
         json_response = json.dumps(tr_info, ensure_ascii=False, indent=4)
+
+        logger.debug("Создан json-ответ с операциями где есть номер телефона в описании")
+
         return json_response
