@@ -51,4 +51,4 @@ def get_settings(file: str) -> Any:
 
         logger.error(e)
 
-        return "Файл с настройками не найден"
+        return "Файл с настройками не найден или некорректно закодирован"
