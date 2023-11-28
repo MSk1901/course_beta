@@ -78,7 +78,10 @@ def top_five_transactions(data: list) -> list:
     else:
         transactions = []
         data_sorted = sorted(data, key=lambda x: abs(x["Сумма операции"]), reverse=True)
-        top_five = data_sorted[:5]
+        if len(data_sorted) > 5:
+            top_five = data_sorted[:5]
+        else:
+            top_five = data_sorted
         for tr in top_five:
             date = datetime.strptime(tr["Дата операции"], "%d.%m.%Y %H:%M:%S").strftime("%d.%m.%Y")
             info = {"date": date,
