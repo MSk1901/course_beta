@@ -31,7 +31,8 @@ def month_transactions(data: list[dict], date: str) -> list:
     """Возвращает транзакции только в текущем месяце"""
     month = datetime.strptime(date, "%d.%m.%Y").strftime("%m.%Y")
     day = datetime.strptime(date, "%d.%m.%Y").day
-    transactions = [x for x in data if month in str(x["Дата операции"]) and int(str(x["Дата операции"])[:2]) <= day]
+    transactions = [x for x in data if month in str(x["Дата операции"])
+                    and int(str(x["Дата операции"])[:2]) <= day and x["Статус"] == "OK"]
 
     logger.debug(f"Создан список транзакций за {month}")
 
@@ -52,11 +53,11 @@ def card_data(data: list[dict], data_month: list) -> list:
             card_transactions = [x for x in data_month if x["Номер карты"] == card]
 
             spending = -sum(x["Сумма операции"] for x in card_transactions if x["Сумма операции"] < 0)
-            cashback = sum(x["Кэшбэк"] for x in card_transactions if x["Кэшбэк"] > 0 and str(x["Кэшбэк"] != "nan"))
+            cashback = sum(x["Кэшбэк"] for x in card_transactions if str(x["Кэшбэк"] != "nan"))
 
             info = {"last_digits": card[1:], "total_spent": spending, "cashback": cashback}
         else:
-            info = {"last_digits": card, "total_spent": 0, "cashback": 0}
+            info = {"last_digits": card[1:], "total_spent": 0, "cashback": 0}
 
         card_info.append(info)
 
@@ -105,6 +106,9 @@ def currency_rates(currencies: list) -> list:
         load_dotenv()
         api_key = os.getenv("EXCHANGE_RATE_API_KEY")
         if api_key is None:
+
+            logger.error("Нет ключа API")
+
             raise ValueError("Нет ключа API")
         try:
             for currency in currencies:
