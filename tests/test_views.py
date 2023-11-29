@@ -5,8 +5,8 @@ from unittest.mock import patch
 import pytest
 import requests
 
-from src.views import (card_data, currency_rates, greeting, main_json, month_transactions, stock_rates,
-                       top_five_transactions)
+from src.views import (card_data, currency_rates, greeting, main_json, make_currencies, month_transactions,
+                       stock_rates, top_five_transactions)
 
 
 @pytest.mark.parametrize("data, expected_result", [
@@ -20,12 +20,13 @@ def test_greeting(mock_datetime, data, expected_result):
     assert greeting() == expected_result
 
 
-def test_month_transactions(tr_list):
-    assert [x['Дата операции'] for x in month_transactions(tr_list, "27.11.2023")] == ['27.11.2023 13:08:09',
-                                                                                       '24.11.2023 18:57:06',
-                                                                                       '17.11.2023 12:56:15',
-                                                                                       '12.11.2023 11:50:27',
-                                                                                       '05.11.2023 18:21:06']
+def test_month_transactions(tr_list, rates):
+    assert [x['Дата операции'] for x in
+            month_transactions(tr_list, "27.11.2023", rates)] == ['27.11.2023 13:08:09',
+                                                                  '24.11.2023 18:57:06',
+                                                                  '17.11.2023 12:56:15',
+                                                                  '12.11.2023 11:50:27',
+                                                                  '05.11.2023 18:21:06']
 
 
 def test_card_data(tr_list):
@@ -87,7 +88,7 @@ def test_top_five_transactions_no_transactions():
 @patch.object(requests, 'get')
 def test_currency_rates(mock_get):
     mock_get.return_value.json.return_value = {"rates": {"RUB": 100.0}}
-    assert currency_rates(["USD"]) == [{"currency": "USD", "rate": 100.0}]
+    assert currency_rates() == {"rates": {"RUB": 100.0}}
 
 
 @pytest.mark.parametrize("error", [KeyError, ValueError, requests.exceptions.HTTPError])
@@ -95,18 +96,19 @@ def test_currency_rates(mock_get):
 def test_currency_rates_errors(mock_get, error):
     mock_get.side_effect = error
     with pytest.raises(ValueError):
-        assert currency_rates(["mock"]) == "Что-то пошло не так"
+        assert currency_rates() == "Что-то пошло не так"
 
 
 @patch("src.views.os.getenv")
 def test_currency_rates_no_api_key(mock_getenv):
     mock_getenv.return_value = None
     with pytest.raises(ValueError):
-        assert currency_rates(["USD"]) == "Нет ключа API"
+        assert currency_rates() == "Нет ключа API"
 
 
-def test_currency_rates_no_currencies():
-    assert currency_rates([]) == []
+def test_make_currencies(rates):
+    assert make_currencies(["USD"], rates) == [{'currency': 'USD', 'rate': 88.94}]
+    assert make_currencies([], rates) == []
 
 
 @patch.object(requests, 'get')
@@ -130,7 +132,7 @@ def test_stock_rates_no_api_key(mock_getenv):
         assert stock_rates(["AAPL"]) == "Нет ключа API"
 
 
-def test_stock_rates_no_currencies():
+def test_stock_rates_no_stocks():
     assert stock_rates([]) == []
 
 
@@ -138,26 +140,26 @@ def test_stock_rates_no_currencies():
 @patch("src.views.currency_rates")
 @patch("src.views.card_data")
 @patch("src.views.greeting")
-def test_main_json(mock_greeting, mock_card_data, mock_currency_rates, mock_stock_rates, tr_list):
+def test_main_json(mock_greeting, mock_card_data, mock_currency_rates, mock_stock_rates, tr_list, rates):
     mock_greeting.return_value = "Добрый вечер"
     mock_card_data.return_value = [
-            {
-                "last_digits": "1049",
-                "total_spent": 1875.0,
-                "cashback": 0
-            },
-            {
-                "last_digits": "7842",
-                "total_spent": 1176.99,
-                "cashback": 11.0
-            },
-            {
-                "last_digits": "9390",
-                "total_spent": 465.0,
-                "cashback": 23.0
-            }
-        ]
-    mock_currency_rates.return_value = [{"currency": "USD", "rate": 100.0}]
+        {
+            "last_digits": "1049",
+            "total_spent": 1875.0,
+            "cashback": 0
+        },
+        {
+            "last_digits": "7842",
+            "total_spent": 1176.99,
+            "cashback": 11.0
+        },
+        {
+            "last_digits": "9390",
+            "total_spent": 465.0,
+            "cashback": 23.0
+        }
+    ]
+    mock_currency_rates.return_value = rates
     mock_stock_rates.return_value = [{"stock": "AAPL", "price": 189.0}]
     settings = {"user_currencies": ["USD"],
                 "user_stocks": ["AAPL"]
@@ -217,7 +219,7 @@ def test_main_json(mock_greeting, mock_card_data, mock_currency_rates, mock_stoc
         "currency_rates": [
             {
                 "currency": "USD",
-                "rate": 100.0
+                "rate": 88.94
             }
         ],
         "stock_prices": [
