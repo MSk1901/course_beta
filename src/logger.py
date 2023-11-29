@@ -1,6 +1,10 @@
 import logging
 import os
 
+logs = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
+if not os.path.exists(logs):
+    os.mkdir(logs)
+
 PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs", "mylog.log")
 
 
