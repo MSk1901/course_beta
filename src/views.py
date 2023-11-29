@@ -27,12 +27,17 @@ def greeting() -> str:
     return greet
 
 
-def month_transactions(data: list[dict], date: str) -> list:
+def month_transactions(data: list[dict], date: str, rates: dict) -> list:
     """Возвращает транзакции только в текущем месяце"""
     month = datetime.strptime(date, "%d.%m.%Y").strftime("%m.%Y")
     day = datetime.strptime(date, "%d.%m.%Y").day
     transactions = [x for x in data if month in str(x["Дата операции"])
                     and int(str(x["Дата операции"])[:2]) <= day and x["Статус"] == "OK"]
+    for transaction in transactions:
+        currency = transaction["Валюта операции"]
+        if currency != "RUB":
+            transaction["Сумма операции"] = round(transaction["Сумма операции"] / rates["rates"][currency], 2)
+            transaction["Валюта операции"] = currency
 
     logger.debug(f"Создан список транзакций за {month}")
 
@@ -54,6 +59,8 @@ def card_data(data: list[dict], data_month: list) -> list:
 
             spending = -sum(x["Сумма операции"] for x in card_transactions if x["Сумма операции"] < 0)
             cashback = sum(x["Кэшбэк"] for x in card_transactions if str(x["Кэшбэк"] != "nan"))
+            if str(cashback) == "nan":
+                cashback = 0
 
             info = {"last_digits": card[1:], "total_spent": spending, "cashback": cashback}
         else:
@@ -95,10 +102,35 @@ def top_five_transactions(data: list) -> list:
         return transactions
 
 
-def currency_rates(currencies: list) -> list:
+def currency_rates() -> dict:
     """
-    Выводит курс валют, выбранных пользователем
+    Получает курс валют с внешнего API
     """
+    load_dotenv()
+    api_key = os.getenv("EXCHANGE_RATE_API_KEY")
+    if api_key is None:
+
+        logger.error("Нет ключа API")
+
+        raise ValueError("Нет ключа API")
+    try:
+        url = "https://api.apilayer.com/exchangerates_data/latest?base=RUB"
+        response = requests.get(url, headers={'apikey': api_key})
+        response.raise_for_status()
+        response_data = response.json()
+
+        logger.debug("Получен курс валют")
+
+        return response_data
+    except (requests.exceptions.HTTPError, ValueError, KeyError) as e:
+
+        logger.error(f"Возникла ошибка {e}")
+
+        raise ValueError("Что-то пошло не так")
+
+
+def make_currencies(currencies: list, rates: dict) -> list:
+    """Выводит курс валют, выбранных пользователем"""
     if not currencies:
 
         logger.debug("Пользователь не выбрал валюты")
@@ -106,31 +138,14 @@ def currency_rates(currencies: list) -> list:
         return []
     else:
         rates_info = []
-        load_dotenv()
-        api_key = os.getenv("EXCHANGE_RATE_API_KEY")
-        if api_key is None:
+        for currency in currencies:
+            rate = rates["rates"][currency]
+            info = {"currency": currency, "rate": round(1 / rate, 2)}
+            rates_info.append(info)
 
-            logger.error("Нет ключа API")
+            logger.debug(f"Создан словарь с курсом валют для для: {currencies}")
 
-            raise ValueError("Нет ключа API")
-        try:
-            for currency in currencies:
-                url = f"https://api.apilayer.com/exchangerates_data/latest?base={currency}"
-                response = requests.get(url, headers={'apikey': api_key})
-                response.raise_for_status()
-                response_data = response.json()
-                rate = response_data["rates"]["RUB"]
-                info = {"currency": currency, "rate": round(rate, 2)}
-                rates_info.append(info)
-
-            logger.debug(f"Получен курс валют для: {currencies}")
-
-            return rates_info
-        except (requests.exceptions.HTTPError, ValueError, KeyError) as e:
-
-            logger.error(f"Возникла ошибка {e}")
-
-            raise ValueError("Что-то пошло не так")
+        return rates_info
 
 
 def stock_rates(stocks: list) -> list:
@@ -172,15 +187,16 @@ def stock_rates(stocks: list) -> list:
 
 def main_json(transactions: list, settings: dict, date: str) -> str:
     greet = greeting()
-    tr_monthly = month_transactions(transactions, date)
+    rates = currency_rates()
+    tr_monthly = month_transactions(transactions, date, rates)
     card_info = card_data(transactions, tr_monthly)
     top_five = top_five_transactions(tr_monthly)
-    rates = currency_rates(settings["user_currencies"])
+    rates_info = make_currencies(settings["user_currencies"], rates)
     stocks = stock_rates(settings["user_stocks"])
     response = {"greeting": greet,
                 "cards": card_info,
                 "top_transactions": top_five,
-                "currency_rates": rates,
+                "currency_rates": rates_info,
                 "stock_prices": stocks}
     response_json = json.dumps(response, ensure_ascii=False, indent=4)
 
